@@ -6,20 +6,20 @@ import pandas as pd
 from datetime import datetime
 
 # ==========================================
-# 1. SETUP & AI CONFIGURATION
+# 1. AI CONFIGURATION (ใส่ API Key ตรงนี้)
 # ==========================================
-# นำ API Key ที่คุณมีใน Screenshot สุดท้ายมาใส่ตรงนี้
-GEMINI_API_KEY = "AIzaSyDhc1uMfvCAmCBv0dyK_YVN6eWkGYqfTjY" 
-genai.configure(api_key=GEMINI_API_KEY)
+# นำรหัสจาก Google AI Studio ที่ขึ้นต้นด้วย AIza... มาแปะ
+API_KEY = "AIzaSyDhc1uMfvCAmCBv0dyK_YVN6eWkGYqfTjY" 
+genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel('gemini-1.5-flash')
 
 # ==========================================
-# 2. DATABASE (ระบบซ่อมแซมและสร้างตาราง)
+# 2. DATABASE SYSTEM (ระบบจัดการฐานข้อมูล)
 # ==========================================
 def init_db():
     conn = sqlite3.connect("users.db", check_same_thread=False)
     cursor = conn.cursor()
-    # สร้างตารางหลัก (ถ้ายังไม่มี)
+    # สร้างตาราง Projects
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS projects (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,44 +33,36 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    # 🩹 ส่วนสำคัญ: แก้ไข OperationalError (ตารางไม่มีคอลัมน์) แบบอัตโนมัติ
-    columns_to_check = [
-        ("segments_json", "TEXT"),
-        ("glossary_json", "TEXT"),
-        ("language", "TEXT")
-    ]
-    for col_name, col_type in columns_to_check:
+    # 🩹 แก้ปัญหา OperationalError: เพิ่มคอลัมน์อัตโนมัติ
+    cols = [("segments_json", "TEXT"), ("glossary_json", "TEXT"), ("language", "TEXT")]
+    for col_name, col_type in cols:
         try:
             cursor.execute(f"ALTER TABLE projects ADD COLUMN {col_name} {col_type}")
-        except sqlite3.OperationalError:
-            pass # ถ้ามีคอลัมน์อยู่แล้วให้ข้าม
+        except: pass
     conn.commit()
     conn.close()
 
 # ==========================================
-# 3. AI LOGIC (ส่วนที่ช่วยแบ่งประโยคภาษาไทย)
+# 3. AI RE-SEGMENTATION (ฟังก์ชันแบ่งประโยค)
 # ==========================================
-def ai_resegment_text(raw_text):
+def ai_resegment(raw_text):
     if not raw_text.strip(): return []
     prompt = f"""
     คุณเป็นผู้เชี่ยวชาญด้านภาษาไทย ช่วยแบ่งประโยคจากข้อความ OCR นี้ใหม่
-    ให้แต่ละประโยคมีความยาวที่เหมาะสมสำหรับการนำไปแปลใน CAT Tools
-    เงื่อนไข: ห้ามแก้คำเดิม, ห้ามสรุปความ, คืนค่าเป็น JSON List ของ String เท่านั้น
+    ให้แต่ละประโยคมีความยาวที่เหมาะสมสำหรับการแปล ห้ามแก้คำเดิม คืนค่าเป็น JSON List เท่านั้น
     ข้อความ: {raw_text}
     """
     try:
         response = model.generate_content(prompt)
-        # ล้าง Markdown เผื่อ AI คืนค่ามาผิดรูปแบบ
         clean_json = response.text.replace('```json', '').replace('```', '').strip()
         return json.loads(clean_json)
     except:
-        # ถ้า AI พัง ให้แบ่งด้วยขึ้นบรรทัดใหม่ธรรมดา
         return [s.strip() for s in raw_text.split('\n') if s.strip()]
 
 # ==========================================
-# 4. UI STYLING (CSS สวยๆ เหมือนเดิม)
+# 4. CSS STYLING (ความสวยงามเหมือนเดิม)
 # ==========================================
-st.set_page_config(page_title="Thai Text Extractor", layout="wide")
+st.set_page_config(page_title="Thai Text Extractor Pro", layout="wide")
 init_db()
 
 st.markdown("""
@@ -79,54 +71,63 @@ st.markdown("""
     html, body, [class*="css"] { font-family: 'Sarabun', sans-serif !important; }
     .hero { background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%); border-radius: 20px; padding: 2rem; color: #fff; margin-bottom: 2rem; }
     .card { background: #fff; border-radius: 14px; padding: 1.5rem; box-shadow: 0 2px 12px rgba(0,0,0,.1); border: 1px solid #e2e8f0; margin-bottom: 1rem; }
+    .seg-box { background: #f8fafc; border-left: 5px solid #1d4ed8; padding: 10px; margin-bottom: 5px; border-radius: 5px; }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 5. MAIN LOGIC (หน้าอัปโหลดและแสดงผล)
+# 5. MAIN APP LOGIC
 # ==========================================
 def main():
-    # จำลองระบบ Session (ถ้าคุณมีระบบ Login อยู่แล้วให้ใช้ของเดิม)
+    # ระบบ Session (จำลอง Login ถ้ายังไม่ได้ทำ)
     if 'user' not in st.session_state:
         st.session_state.user = {"id": 1, "username": "Admin"}
-    if 'page' not in st.session_state:
-        st.session_state.page = "upload"
-
-    # SIDEBAR (แก้ปัญหา KeyError: 'total_segments')
+    
+    # SIDEBAR
     with st.sidebar:
-        st.title("เมนู")
+        st.title("🇹🇭 เมนูหลัก")
         st.write(f"👤 ผู้ใช้: {st.session_state.user['username']}")
-        # ใส่ค่าสถิติแบบปลอดภัย
-        st.markdown(f"**โปรเจกต์ทั้งหมด:** 1")
-        st.markdown(f"**ประโยคทั้งหมด:** 100") 
+        st.divider()
+        st.info("ระบบจะใช้ Gemini AI ช่วยในการแบ่งประโยคภาษาไทยให้แม่นยำขึ้น")
 
-    # PAGE: UPLOAD
-    if st.session_state.page == "upload":
-        st.markdown('<div class="hero"><h1>🇹🇭 Thai Text Extractor + AI</h1><p>ถอดข้อความและแบ่งประโยคอัจฉริยะ</p></div>', unsafe_allow_html=True)
+    # หน้าจอหลัก
+    st.markdown('<div class="hero"><h1>📤 Thai Text Extractor + AI</h1><p>ถอดข้อความ OCR และจัดระเบียบประโยคด้วยสมองกล Gemini</p></div>', unsafe_allow_html=True)
+    
+    with st.container():
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        uploaded = st.file_uploader("เลือกรูปภาพหรือ PDF ที่ต้องการถอดข้อความ", type=["png", "jpg", "jpeg", "pdf"])
+        proj_name = st.text_input("ชื่อโปรเจกต์", value=f"Project_{datetime.now().strftime('%m%d_%H%M')}")
         
-        uploaded = st.file_uploader("เลือกไฟล์ภาพหรือ PDF", type=["png", "jpg", "jpeg", "pdf"])
-        if uploaded:
-            if st.button("🚀 เริ่มประมวลผลด้วย AI"):
-                with st.spinner("AI กำลังวิเคราะห์ข้อความ..."):
-                    # 1. OCR (ใส่ฟังก์ชันเดิมของคุณที่นี่)
-                    raw_ocr_text = "นี่คือข้อความที่ได้จากระบบ OCR เดิมของคุณ..." 
+        if st.button("🚀 เริ่มประมวลผล (OCR + AI Segment)", use_container_width=True):
+            if uploaded:
+                with st.spinner("AI กำลังวิเคราะห์และแบ่งประโยค..."):
+                    # --- 1. OCR (ใส่ฟังก์ชันเดิมของคุณตรงนี้) ---
+                    raw_ocr_text = "นี่คือข้อความตัวอย่างที่ได้จาก OCR ของคุณ ซึ่งมักจะแบ่งประโยคได้ไม่ค่อยดีนัก"
                     
-                    # 2. AI Resegment
-                    final_segments = ai_resegment_text(raw_ocr_text)
+                    # --- 2. AI Resegment (ความสามารถใหม่) ---
+                    final_segments = ai_resegment(raw_ocr_text)
                     
-                    # 3. บันทึกลง DB (แก้ปัญหา Argument 'language' / 'segments')
+                    # --- 3. บันทึกลงฐานข้อมูล (แก้ปัญหา Argument Error) ---
                     conn = sqlite3.connect("users.db")
                     cursor = conn.cursor()
                     cursor.execute("""
                         INSERT INTO projects (user_id, name, file_name, file_type, segments_json, language, glossary_json)
                         VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, (st.session_state.user['id'], uploaded.name, uploaded.name, uploaded.type, 
+                    """, (st.session_state.user['id'], proj_name, uploaded.name, uploaded.type, 
                           json.dumps(final_segments, ensure_ascii=False), "th", "{}"))
                     conn.commit()
                     conn.close()
                     
-                    st.success("ประมวลผลสำเร็จ!")
-                    st.table(final_segments)
+                    st.success(f"ประมวลผลสำเร็จ! พบ {len(final_segments)} ประโยค")
+                    
+                    # แสดงผลตารางสวยๆ เหมือนใน Numbers
+                    df = pd.DataFrame({"ID": [f"SEG_{i+1:04d}" for i in range(len(final_segments))], "Content": final_segments})
+                    st.dataframe(df, use_container_width=True)
+                    
+                    # ปุ่มดาวน์โหลด CSV
+                    csv = df.to_csv(index=False).encode('utf-8-sig')
+                    st.download_button("⬇️ ดาวน์โหลดเป็น CSV สำหรับแปลต่อ", data=csv, file_name=f"{proj_name}.csv", mime="text/csv")
+        st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
