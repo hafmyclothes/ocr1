@@ -1,4 +1,5 @@
 import sqlite3
+import json
 
 def get_connection():
     return sqlite3.connect("users.db", check_same_thread=False)
@@ -25,11 +26,12 @@ def init_db():
             file_name TEXT,
             file_type TEXT,
             language TEXT,
+            glossary_json TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(user_id) REFERENCES users(id)
         )
     """)
-    # ตาราง Segments (แก้บั๊ก KeyError)
+    # ตาราง Segments
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS segments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,10 +48,7 @@ def create_user(username, email, hashed_password):
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute(
-            "INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
-            (username, email, hashed_password)
-        )
+        cursor.execute("INSERT INTO users (username, email, password) VALUES (?, ?, ?)", (username, email, hashed_password))
         conn.commit()
         return True, "ลงทะเบียนสำเร็จ"
     except sqlite3.IntegrityError:
@@ -73,32 +72,43 @@ def get_user_projects(user_id):
 
 def get_user_stats(user_id):
     conn = get_connection()
-    # นับจำนวนโปรเจกต์
     count_projects = conn.execute("SELECT COUNT(*) FROM projects WHERE user_id = ?", (user_id,)).fetchone()[0]
-    # นับจำนวนเซกเมนต์ (แก้ KeyError: 'total_segments')
     try:
-        count_segments = conn.execute("""
-            SELECT COUNT(*) FROM segments 
-            JOIN projects ON segments.project_id = projects.id 
-            WHERE projects.user_id = ?
-        """, (user_id,)).fetchone()[0]
+        count_segments = conn.execute("SELECT COUNT(*) FROM segments JOIN projects ON segments.project_id = projects.id WHERE projects.user_id = ?", (user_id,)).fetchone()[0]
     except:
         count_segments = 0
     conn.close()
-    return {
-        "total_projects": count_projects,
-        "total_segments": count_segments
-    }
+    return {"total_projects": count_projects, "total_segments": count_segments}
 
-def get_project_segments(project_id): return []
-def get_project_glossary(project_id): return []
-def save_project(user_id, name, file_name, file_type, lang):
+def save_project(user_id, name, file_name, file_type, language, glossary_terms=None):
     conn = get_connection()
     cursor = conn.cursor()
+    glossary_json = json.dumps(glossary_terms) if glossary_terms else None
     cursor.execute(
-        "INSERT INTO projects (user_id, name, file_name, file_type, language) VALUES (?, ?, ?, ?, ?)",
-        (user_id, name, file_name, file_type, lang)
+        "INSERT INTO projects (user_id, name, file_name, file_type, language, glossary_json) VALUES (?, ?, ?, ?, ?, ?)",
+        (user_id, name, file_name, file_type, language, glossary_json)
     )
+    project_id = cursor.lastrowid
     conn.commit()
     conn.close()
-def delete_project(project_id): pass
+    return project_id
+
+def get_project_segments(project_id):
+    conn = get_connection()
+    conn.row_factory = sqlite3.Row
+    segments = conn.execute("SELECT * FROM segments WHERE project_id = ?", (project_id,)).fetchall()
+    conn.close()
+    return [dict(s) for s in segments]
+
+def get_project_glossary(project_id):
+    conn = get_connection()
+    res = conn.execute("SELECT glossary_json FROM projects WHERE id = ?", (project_id,)).fetchone()
+    conn.close()
+    return json.loads(res[0]) if res and res[0] else {}
+
+def delete_project(project_id):
+    conn = get_connection()
+    conn.execute("DELETE FROM segments WHERE project_id = ?", (project_id,))
+    conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+    conn.commit()
+    conn.close()
