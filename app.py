@@ -1,5 +1,5 @@
 """
-app.py — Thai Text Extractor
+app.py — Text Extractor
 ระบบถอดข้อความภาษาไทย/อังกฤษจาก PDF, PNG, JPG
 สำหรับนักแปลและ CAT Tools
 """
