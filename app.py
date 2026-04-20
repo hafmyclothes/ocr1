@@ -707,33 +707,39 @@ def page_history():
             c4.metric("ประเภทไฟล์", proj["file_type"].upper())
 
             ca, cb = st.columns([4, 1])
-            with ca:
-                if st.button(f"📂 โหลดโปรเจกต์", key=f"load_{pid}", use_container_width=True):
-            segs = get_project_segments(pid)
-            glss = get_project_glossary(pid)
-            
-            # แก้ไขบรรทัด 717: ดึงข้อความอย่างปลอดภัย
-            safe_segs = []
-            for s in segs:
-                if isinstance(s, dict): safe_segs.append(s["source_text"])
-                else: safe_segs.append(s[2] if len(s) > 2 else s[0])
-            
-            # แก้ไขบรรทัด 718: ดึง Glossary อย่างปลอดภัย
-            safe_glss = []
-            for g in glss:
-                if isinstance(g, dict): safe_glss.append((g["term"], g["frequency"]))
-                else: safe_glss.append((g[2], g[3]) if len(g) > 3 else (g[0], 1))
+           with ca:
+            if st.button(f"📂 โหลดโปรเจกต์", key=f"load_{pid}", use_container_width=True):
+                segs = get_project_segments(pid)
+                glss = get_project_glossary(pid)
+                
+                # ดึงข้อมูล Segments อย่างปลอดภัย
+                safe_segs = []
+                for s in segs:
+                    if isinstance(s, dict):
+                        safe_segs.append(s["source_text"])
+                    else:
+                        # กรณีเป็น Tuple ให้ดึง index ที่ 2 (source_text)
+                        safe_segs.append(s[2] if len(s) > 2 else s[0])
+                
+                # ดึงข้อมูล Glossary อย่างปลอดภัย
+                safe_glss = []
+                for g in glss:
+                    if isinstance(g, dict):
+                        safe_glss.append((g["term"], g["frequency"]))
+                    else:
+                        # กรณีเป็น Tuple ให้ดึง index ที่ 2 และ 3
+                        safe_glss.append((g[2], g[3]) if len(g) > 3 else (g[0], 1))
 
-            st.session_state.result = {
-                "project_id":   pid,
-                "project_name": pname,
-                "segments":     safe_segs,
-                "glossary":     safe_glss,
-                "file_name":    fname,
-                "language":     plang,
-            }
-            st.session_state.page = "results"
-            st.rerun()
+                st.session_state.result = {
+                    "project_id": pid,
+                    "project_name": pname,
+                    "segments": safe_segs,
+                    "glossary": safe_glss,
+                    "file_name": fname,
+                    "language": plang,
+                }
+                st.session_state.page = "results"
+                st.rerun()
             with cb:
                 if st.button(f"🗑️", key=f"del_{pid}", help="ลบโปรเจกต์", use_container_width=True, type="secondary"):
                     if delete_project(pid, uid):
