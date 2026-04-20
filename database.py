@@ -74,21 +74,36 @@ def get_user_stats(user_id):
     conn = get_connection()
     count_projects = conn.execute("SELECT COUNT(*) FROM projects WHERE user_id = ?", (user_id,)).fetchone()[0]
     try:
-        count_segments = conn.execute("SELECT COUNT(*) FROM segments JOIN projects ON segments.project_id = projects.id WHERE projects.user_id = ?", (user_id,)).fetchone()[0]
+        count_segments = conn.execute("""
+            SELECT COUNT(*) FROM segments 
+            JOIN projects ON segments.project_id = projects.id 
+            WHERE projects.user_id = ?
+        """, (user_id,)).fetchone()[0]
     except:
         count_segments = 0
     conn.close()
     return {"total_projects": count_projects, "total_segments": count_segments}
 
-def save_project(user_id, name, file_name, file_type, language, glossary_terms=None):
+def save_project(user_id, name, file_name, file_type, language, segments=None, glossary_terms=None):
+    # แก้บั๊ก unexpected keyword argument 'segments' และ 'language'
     conn = get_connection()
     cursor = conn.cursor()
     glossary_json = json.dumps(glossary_terms) if glossary_terms else None
+    
     cursor.execute(
         "INSERT INTO projects (user_id, name, file_name, file_type, language, glossary_json) VALUES (?, ?, ?, ?, ?, ?)",
         (user_id, name, file_name, file_type, language, glossary_json)
     )
     project_id = cursor.lastrowid
+    
+    # ถ้ามีการส่ง segments มา ให้บันทึกลงตาราง segments ด้วย
+    if segments:
+        for seg in segments:
+            cursor.execute(
+                "INSERT INTO segments (project_id, original_text) VALUES (?, ?)",
+                (project_id, seg)
+            )
+            
     conn.commit()
     conn.close()
     return project_id
