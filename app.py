@@ -9,7 +9,7 @@ from datetime import datetime
 # 1. SETUP & AI CONFIGURATION
 # ==========================================
 # นำ API Key ที่คุณมีใน Screenshot สุดท้ายมาใส่ตรงนี้
-GEMINI_API_KEY = "YOUR_GEMINI_API_KEY" 
+GEMINI_API_KEY = "AIzaSyDhc1uMfvCAmCBv0dyK_YVN6eWkGYqfTjY" 
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-1.5-flash')
 
