@@ -1,5 +1,5 @@
 """
-app.py — Text Extractor
+app.py — Thai Text Extractor
 ระบบถอดข้อความภาษาไทย/อังกฤษจาก PDF, PNG, JPG
 สำหรับนักแปลและ CAT Tools
 """
@@ -13,7 +13,7 @@ import pandas as pd
 import streamlit as st
 
 # ── Init ─────────────────────────────────────────────────────────────────────
-# เรียกไฟล์จากโฟลเดอร์เดียวกัน
+# แก้ไขจุดนี้: ตัดคำว่า modules. ออกเพื่อให้เรียกไฟล์ในโฟลเดอร์เดียวกันได้
 from database import init_db
 from auth import login_user, register_user
 from database import (
@@ -195,9 +195,9 @@ html, body, [class*="css"] { font-family: 'Sarabun', system-ui, sans-serif !impo
 
 LANG_MAP = {
     "🤖 ตรวจสอบอัตโนมัติ":  "auto",
-    "🇹🇭 ภาษาไทย":            "thai",
-    "🇬🇧 ภาษาอังกฤษ":          "english",
-    "🌐 ไทย-อังกฤษ (ผสม)":    "mixed",
+    "🇹🇭 ภาษาไทย":           "thai",
+    "🇬🇧 ภาษาอังกฤษ":         "english",
+    "🌐 ไทย-อังกฤษ (ผสม)":   "mixed",
 }
 LANG_LABEL = {v: k for k, v in LANG_MAP.items()}
 
@@ -211,7 +211,7 @@ def lang_badge(lang: str) -> str:
 def hero(title: str, subtitle: str, mono: str = "") -> None:
     st.markdown(f"""
     <div class="hero">
-        {f'<div class="mono">{mono}</div>' if mono else ''}
+        {'<div class="mono">'+mono+'</div>' if mono else ''}
         <h1>{title}</h1>
         <p>{subtitle}</p>
     </div>""", unsafe_allow_html=True)
@@ -236,7 +236,7 @@ def make_glossary_csv(glossary: list[tuple[str, int]]) -> bytes:
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-#  SIDEBAR
+#  SIDEBAR  (shown only when logged in)
 # ═════════════════════════════════════════════════════════════════════════════
 
 def show_sidebar():
@@ -273,6 +273,7 @@ def show_sidebar():
 
         st.markdown("<hr>", unsafe_allow_html=True)
 
+        # Quick stats
         stats = get_user_stats(st.session_state.user["id"])
         st.markdown(f"""
         <div style="font-size:.78rem;color:#93c5fd;padding:0 .4rem">
@@ -294,6 +295,7 @@ def show_sidebar():
 # ═════════════════════════════════════════════════════════════════════════════
 
 def page_auth():
+    # Centered hero
     col_l, col_c, col_r = st.columns([1, 2.5, 1])
     with col_c:
         st.markdown("""
@@ -307,6 +309,7 @@ def page_auth():
 
         tab_login, tab_reg = st.tabs(["🔑  เข้าสู่ระบบ", "📝  สมัครสมาชิก"])
 
+        # ── Login ──
         with tab_login:
             with st.form("f_login"):
                 st.markdown("### เข้าสู่ระบบ")
@@ -325,6 +328,7 @@ def page_auth():
                         else:
                             st.error(f"❌ {msg}")
 
+        # ── Register ──
         with tab_reg:
             with st.form("f_reg"):
                 st.markdown("### สมัครสมาชิก")
@@ -345,14 +349,17 @@ def page_auth():
                         else:
                             st.error(f"❌ {msg}")
 
+        # Feature cards
         st.markdown("<br>", unsafe_allow_html=True)
         f1, f2, f3 = st.columns(3)
-        features = [
-            ("🔍", "OCR แม่นยำ", "Tesseract + PyMuPDF รองรับ PDF สแกน, PNG, JPG สระไม่ลอย"),
-            ("📚", "Glossary อัตโนมัติ", "สกัดคำที่พบบ่อย tokenize ภาษาไทยถูกต้อง กรอง stop word"),
-            ("📄", "Export CAT Tools", "CSV พร้อมใช้ใน MemoQ, SDL Trados, Phrase ฯลฯ"),
-        ]
-        for col, (icon, title, desc) in zip([f1, f2, f3], features):
+        for col, icon, title, desc in [
+            (f1, "🔍", "OCR แม่นยำ",
+             "Tesseract + PyMuPDF รองรับ PDF สแกน, PNG, JPG สระไม่ลอย"),
+            (f2, "📚", "Glossary อัตโนมัติ",
+             "สกัดคำที่พบบ่อย tokenize ภาษาไทยถูกต้อง กรอง stop word"),
+            (f3, "📄", "Export CAT Tools",
+             "CSV พร้อมใช้ใน MemoQ, SDL Trados, Phrase ฯลฯ"),
+        ]:
             with col:
                 st.markdown(f"""
                 <div class="card" style="text-align:center">
@@ -393,10 +400,15 @@ def page_upload():
         min_freq    = st.slider(
             "ความถี่ขั้นต่ำสำหรับ Glossary",
             min_value=1, max_value=15, value=2,
+            help="คำที่ปรากฏน้อยกว่านี้จะไม่ถูกเพิ่มใน Glossary",
         )
         st.markdown('</div>', unsafe_allow_html=True)
 
-        extract_btn = st.button("🚀  เริ่มถอดข้อความ", use_container_width=True, disabled=(uploaded is None))
+        extract_btn = st.button(
+            "🚀  เริ่มถอดข้อความ",
+            use_container_width=True,
+            disabled=(uploaded is None),
+        )
 
     with col_info:
         st.markdown("""
@@ -416,16 +428,18 @@ def page_upload():
         </div>
         """, unsafe_allow_html=True)
 
+    # ── Process ──────────────────────────────────────────────────────────────
     if extract_btn and uploaded:
         lang      = LANG_MAP[lang_choice]
         ocr_lang  = get_tesseract_lang(lang)
         file_bytes = uploaded.read()
         ftype      = uploaded.name.rsplit(".", 1)[-1].lower()
 
-        prog  = st.progress(0, text="กำลังเตรียมไฟล์…")
+        prog   = st.progress(0, text="กำลังเตรียมไฟล์…")
         status = st.empty()
 
         try:
+            # 1. OCR / text extraction
             status.info("🔍 กำลังถอดข้อความ…")
             prog.progress(15, text="อ่านไฟล์…")
             if ftype == "pdf":
@@ -433,14 +447,17 @@ def page_upload():
             else:
                 pages_text = [extract_text_from_image(file_bytes, lang=ocr_lang)]
 
+            # 2. Segment
             status.info("✂️ กำลังแบ่ง segments…")
             prog.progress(45, text="แบ่ง segments…")
             segments = process_extracted_text(pages_text, lang=lang)
 
+            # 3. Glossary
             status.info("📚 กำลังสร้าง Glossary…")
             prog.progress(65, text="สร้าง Glossary…")
             glossary = extract_glossary(segments, lang=lang, min_freq=min_freq)
 
+            # 4. Save
             status.info("💾 กำลังบันทึก…")
             prog.progress(85, text="บันทึกโปรเจกต์…")
             pid = save_project(
@@ -454,7 +471,10 @@ def page_upload():
             )
 
             prog.progress(100, text="เสร็จสิ้น!")
-            status.success(f"✅ ถอดข้อความสำเร็จ! พบ **{len(segments)}** segments")
+            status.success(
+                f"✅ ถอดข้อความสำเร็จ! "
+                f"พบ **{len(segments)}** segments และ **{len(glossary)}** คำใน Glossary"
+            )
 
             st.session_state.result = {
                 "project_id":   pid,
@@ -466,26 +486,32 @@ def page_upload():
             }
 
             c1, c2 = st.columns(2)
-            if c1.button("📋  ดูผลลัพธ์ →", use_container_width=True):
-                st.session_state.page = "results"
-                st.rerun()
-            if c2.button("📚  ดู Glossary →", use_container_width=True):
-                st.session_state.page = "glossary"
-                st.rerun()
+            with c1:
+                if st.button("📋  ดูผลลัพธ์ →", use_container_width=True):
+                    st.session_state.page = "results"
+                    st.rerun()
+            with c2:
+                if st.button("📚  ดู Glossary →", use_container_width=True):
+                    st.session_state.page = "glossary"
+                    st.rerun()
 
         except Exception as exc:
             prog.empty()
             status.error(f"❌ เกิดข้อผิดพลาด: {exc}")
-            with st.expander("รายละเอียด"):
+            with st.expander("รายละเอียดข้อผิดพลาด"):
                 st.exception(exc)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-#  PAGE — RESULTS / GLOSSARY
+#  PAGE — RESULTS
 # ═════════════════════════════════════════════════════════════════════════════
 
 def page_results():
-    hero("📋 ผลลัพธ์การถอดข้อความ", "ตรวจสอบ segments และดาวน์โหลด CSV", mono="step 2 of 3 — review")
+    hero(
+        "📋 ผลลัพธ์การถอดข้อความ",
+        "ตรวจสอบ segments และดาวน์โหลด CSV สำหรับ CAT Tools",
+        mono="step 2 of 3 — review",
+    )
     result = st.session_state.result
 
     if not result:
@@ -498,81 +524,210 @@ def page_results():
     segments = result["segments"]
     lang     = result["language"]
 
+    # ── Stats ─────────────────────────────────────────────────────────────
+    total_ch = sum(len(s) for s in segments)
     st.markdown(f"""
     <div class="stats-row">
-        <div class="stat"><div class="stat-n">{len(segments)}</div><div class="stat-lbl">📝 Segments</div></div>
-        <div class="stat"><div class="stat-n">{sum(len(s) for s in segments):,}</div><div class="stat-lbl">🔤 ตัวอักษร</div></div>
+        <div class="stat">
+            <div class="stat-n">{len(segments)}</div>
+            <div class="stat-lbl">📝 Segments</div>
+        </div>
+        <div class="stat">
+            <div class="stat-n">{total_ch:,}</div>
+            <div class="stat-lbl">🔤 ตัวอักษร</div>
+        </div>
+        <div class="stat">
+            <div class="stat-n">{len(result.get('glossary', []))}</div>
+            <div class="stat-lbl">📚 Glossary terms</div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
+    # ── Downloads ─────────────────────────────────────────────────────────
     c1, c2 = st.columns(2)
-    c1.download_button("⬇️ Segments CSV", make_segments_csv(segments, lang), f"{result['project_name']}_segments.csv", "text/csv", use_container_width=True)
-    if result.get("glossary"):
-        c2.download_button("⬇️ Glossary CSV", make_glossary_csv(result["glossary"]), f"{result['project_name']}_glossary.csv", "text/csv", use_container_width=True)
+    pname = result["project_name"]
+    with c1:
+        st.download_button(
+            "⬇️  ดาวน์โหลด CSV (Segments)",
+            data=make_segments_csv(segments, lang),
+            file_name=f"{pname}_segments.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+    with c2:
+        if result.get("glossary"):
+            st.download_button(
+                "⬇️  ดาวน์โหลด CSV (Glossary)",
+                data=make_glossary_csv(result["glossary"]),
+                file_name=f"{pname}_glossary.csv",
+                mime="text/csv",
+                use_container_width=True,
+            )
 
-    st.markdown('<div class="card"><div class="card-title">📝 Segments Viewer</div>', unsafe_allow_html=True)
-    for i, seg in enumerate(segments[:50]): # Show first 50
-        st.markdown(f'<div class="seg"><span class="seg-id">SEG_{i+1:04d}</span>{seg}</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    # ── Segment viewer ────────────────────────────────────────────────────
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown('<div class="card-title">📝 Segments</div>', unsafe_allow_html=True)
 
+    col_search, col_pp = st.columns([3, 1])
+    with col_search:
+        q = st.text_input("🔍 ค้นหา", placeholder="พิมพ์ข้อความที่ต้องการ…", label_visibility="collapsed")
+    with col_pp:
+        page_size = st.selectbox("แสดง", [20, 50, 100], index=0, label_visibility="collapsed")
 
-def page_glossary():
-    hero("📚 Glossary", "คำศัพท์ที่พบบ่อย", mono="step 3 of 3 — glossary")
-    result = st.session_state.result
-    if not result or not result.get("glossary"):
-        st.info("⚠️ ยังไม่มี Glossary")
-        return
+    filtered = [s for s in segments if q.lower() in s.lower()] if q else segments
+    if q:
+        st.caption(f"พบ {len(filtered)} จาก {len(segments)} segments")
 
-    df = pd.DataFrame(result["glossary"], columns=["คำศัพท์", "ความถี่"])
-    st.dataframe(df, use_container_width=True)
+    total_pages = max(1, (len(filtered) + page_size - 1) // page_size)
+    pg = st.number_input("หน้า", 1, total_pages, 1, label_visibility="collapsed") - 1
+    start, end = pg * page_size, min((pg + 1) * page_size, len(filtered))
+
+    for i, seg in enumerate(filtered[start:end], start=start):
+        badge = lang_badge(
+            "thai" if any("\u0e00" <= c <= "\u0e7f" for c in seg) else "english"
+        )
+        st.markdown(f"""
+        <div class="seg">
+            <span class="seg-id">SEG_{i+1:04d} &nbsp; {badge}</span>
+            {seg}
+        </div>""", unsafe_allow_html=True)
+
+    if total_pages > 1:
+        st.caption(f"หน้า {pg+1} / {total_pages}")
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-#  PAGE — HISTORY (FIXED INDENTATION)
+#  PAGE — GLOSSARY
+# ═════════════════════════════════════════════════════════════════════════════
+
+def page_glossary():
+    hero(
+        "📚 Glossary",
+        "คำศัพท์ที่พบบ่อย — tokenize ถูกต้อง กรอง stop word แล้ว",
+        mono="step 3 of 3 — glossary",
+    )
+    result = st.session_state.result
+
+    if not result or not result.get("glossary"):
+        st.info("⚠️ ยังไม่มี Glossary — กรุณาถอดข้อความก่อน")
+        return
+
+    glossary = result["glossary"]
+    pname    = result["project_name"]
+
+    top_freq = glossary[0][1] if glossary else 1
+
+    # Stats
+    st.markdown(f"""
+    <div class="stats-row">
+        <div class="stat">
+            <div class="stat-n">{len(glossary)}</div>
+            <div class="stat-lbl">📚 คำทั้งหมด</div>
+        </div>
+        <div class="stat">
+            <div class="stat-n">{top_freq}</div>
+            <div class="stat-lbl">🔝 ความถี่สูงสุด</div>
+        </div>
+        <div class="stat">
+            <div class="stat-n">{sum(f for _,f in glossary)}</div>
+            <div class="stat-lbl">∑ รวมความถี่</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Download
+    st.download_button(
+        "⬇️  ดาวน์โหลด Glossary CSV",
+        data=make_glossary_csv(glossary),
+        file_name=f"{pname}_glossary.csv",
+        mime="text/csv",
+        use_container_width=True,
+    )
+
+    # Search + table
+    q = st.text_input("🔍 ค้นหาคำ", placeholder="พิมพ์คำ…")
+    filtered = [(t, f) for t, f in glossary if q.lower() in t.lower()] if q else glossary
+
+    df = pd.DataFrame(filtered, columns=["คำศัพท์", "ความถี่"])
+    df.index = range(1, len(df) + 1)
+
+    st.dataframe(
+        df,
+        use_container_width=True,
+        height=min(600, 40 * len(df) + 40),
+        column_config={
+            "คำศัพท์": st.column_config.TextColumn("คำศัพท์", width="medium"),
+            "ความถี่":  st.column_config.ProgressColumn(
+                "ความถี่",
+                format="%d ครั้ง",
+                min_value=0,
+                max_value=top_freq,
+            ),
+        },
+    )
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  PAGE — HISTORY
 # ═════════════════════════════════════════════════════════════════════════════
 
 def page_history():
-    hero("📁 ประวัติโปรเจกต์", "โปรเจกต์ทั้งหมดที่คุณเคยทำ", mono="project history")
+    hero(
+        "📁 ประวัติโปรเจกต์",
+        "โปรเจกต์ทั้งหมดที่คุณเคยทำ — โหลดซ้ำหรือลบได้",
+        mono="project history",
+    )
 
     uid      = st.session_state.user["id"]
     projects = get_user_projects(uid)
 
     if not projects:
-        st.info("ยังไม่มีโปรเจกต์")
+        st.info("ยังไม่มีโปรเจกต์ กรุณาอัปโหลดไฟล์เพื่อเริ่มต้น")
+        if st.button("ไปหน้าอัปโหลด"):
+            st.session_state.page = "upload"
+            st.rerun()
         return
 
     for proj in projects:
         pid   = proj["id"]
         pname = proj["name"]
         fname = proj["file_name"]
+        plang = proj["language"]
         pdate = proj["created_at"][:16]
+        pseg  = proj["segment_count"]
+        pgls  = proj["glossary_count"]
 
         with st.expander(f"📄  {pname}  ·  {fname}  ·  {pdate}"):
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Segments", pseg)
+            c2.metric("Glossary", pgls)
+            c3.metric("ภาษา", LANG_LABEL.get(plang, plang).split(" ", 1)[-1])
+            c4.metric("ประเภทไฟล์", proj["file_type"].upper())
+
             ca, cb = st.columns([4, 1])
             with ca:
-                if st.button(f"📂 โหลดโปรเจกต์", key=f"load_{pid}", use_container_width=True):
-                    segs_raw = get_project_segments(pid)
-                    glss_raw = get_project_glossary(pid)
-                    
-                    # Clean segments
-                    safe_segs = [s["source_text"] if isinstance(s, dict) else (s[2] if len(s) > 2 else s[0]) for s in segs_raw]
-                    # Clean glossary
-                    safe_glss = [(g["term"], g["frequency"]) if isinstance(g, dict) else (g[2], g[3]) for g in glss_raw]
-
+                if st.button(f"📂  โหลดโปรเจกต์", key=f"load_{pid}", use_container_width=True):
+                    segs = get_project_segments(pid)
+                    glss = get_project_glossary(pid)
                     st.session_state.result = {
-                        "project_id": pid,
+                        "project_id":   pid,
                         "project_name": pname,
-                        "segments": safe_segs,
-                        "glossary": safe_glss,
-                        "file_name": fname,
-                        "language": proj["language"],
+                        "segments":      [s["source_text"] for s in segs],
+                        "glossary":      [(g["term"], g["frequency"]) for g in glss],
+                        "file_name":    fname,
+                        "language":      plang,
                     }
                     st.session_state.page = "results"
                     st.rerun()
             with cb:
-                if st.button(f"🗑️", key=f"del_{pid}", use_container_width=True, type="secondary"):
+                if st.button(f"🗑️", key=f"del_{pid}", help="ลบโปรเจกต์", use_container_width=True, type="secondary"):
                     if delete_project(pid, uid):
+                        st.success("ลบโปรเจกต์เรียบร้อย")
                         st.rerun()
+                    else:
+                        st.error("ไม่สามารถลบได้")
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -585,6 +740,15 @@ def main():
         return
 
     show_sidebar()
-    p = st.session_state.page
-    if p == "upload": page_upload()
-    elif p == "results": page
+
+    page = st.session_state.page
+    if   page == "upload":   page_upload()
+    elif page == "results":  page_results()
+    elif page == "glossary": page_glossary()
+    elif page == "history":  page_history()
+    else:                    page_upload()
+
+
+if __name__ == "__main__":
+    main()
+
