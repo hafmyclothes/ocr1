@@ -13,9 +13,10 @@ import pandas as pd
 import streamlit as st
 
 # ── Init ─────────────────────────────────────────────────────────────────────
-from modules.database import init_db
-from modules.auth import login_user, register_user
-from modules.database import (
+# แก้ไขจุดนี้: ตัดคำว่า modules. ออกเพื่อให้เรียกไฟล์ในโฟลเดอร์เดียวกันได้
+from database import init_db
+from auth import login_user, register_user
+from database import (
     get_user_projects,
     get_user_stats,
     get_project_segments,
@@ -23,13 +24,13 @@ from modules.database import (
     save_project,
     delete_project,
 )
-from modules.ocr_engine import (
+from ocr_engine import (
     extract_text_from_pdf,
     extract_text_from_image,
     get_tesseract_lang,
 )
-from modules.text_processor import process_extracted_text
-from modules.glossary import extract_glossary
+from text_processor import process_extracted_text
+from glossary import extract_glossary
 
 # ─────────────────────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -478,10 +479,10 @@ def page_upload():
             st.session_state.result = {
                 "project_id":   pid,
                 "project_name": proj_name,
-                "segments":     segments,
-                "glossary":     glossary,
+                "segments":      segments,
+                "glossary":      glossary,
                 "file_name":    uploaded.name,
-                "language":     lang,
+                "language":      lang,
             }
 
             c1, c2 = st.columns(2)
@@ -713,10 +714,10 @@ def page_history():
                     st.session_state.result = {
                         "project_id":   pid,
                         "project_name": pname,
-                        "segments":     [s["source_text"] for s in segs],
-                        "glossary":     [(g["term"], g["frequency"]) for g in glss],
+                        "segments":      [s["source_text"] for s in segs],
+                        "glossary":      [(g["term"], g["frequency"]) for g in glss],
                         "file_name":    fname,
-                        "language":     plang,
+                        "language":      plang,
                     }
                     st.session_state.page = "results"
                     st.rerun()
