@@ -1,7 +1,6 @@
 import re
 import bcrypt
-# แก้ไขจุดนี้: ตัด modules. ออก
-from database import create_user, get_user_by_username, get_user_by_email
+from database import create_user, get_user_by_username
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
