@@ -3,7 +3,6 @@ import re
 import csv
 import uuid
 import unicodedata
-import pandas as pd
 from io import StringIO, BytesIO
 from pathlib import Path
 from collections import Counter
@@ -222,220 +221,6 @@ def extract_glossary(segments: list, top_n: int = 50, min_len: int = 2, min_freq
     }
 
 
-def analyze_document_tone(segments: list, text: str) -> dict:
-    """
-    Analyze document tone and style.
-    
-    Returns:
-        dict with tone analysis results
-    """
-    total_text = " ".join(segments)
-    tokens = word_tokenize(total_text, engine='newmm', keep_whitespace=False)
-    
-    # Formal indicators (คำราชาศัพท์, คำสุภาพ)
-    formal_words = {
-        'กระผม', 'ดิฉัน', 'ท่าน', 'รับใช้', 'เรียน', 'สำนักงาน', 'บริษัท',
-        'องค์กร', 'ประชุม', 'รายงาน', 'เสนอ', 'พิจารณา', 'ประกาศ',
-        'กำหนด', 'ระเบียบ', 'ข้อบังคับ', 'มติ', 'ขอบคุณ', 'เรียนมา'
-    }
-    
-    # Informal indicators
-    informal_words = {
-        'ครับ', 'ค่ะ', 'นะ', 'เหรอ', 'เนอะ', 'อะ', 'ไง', 'เอง', 'ซิ',
-        'เถอะ', 'สิ', 'แล้วกัน', 'นะคะ', 'นะครับ'
-    }
-    
-    # Technical indicators
-    technical_words = {
-        'ระบบ', 'เทคโนโลยี', 'ซอฟต์แวร์', 'ฮาร์ดแวร์', 'โปรแกรม',
-        'ข้อมูล', 'กระบวนการ', 'วิธีการ', 'ประสิทธิภาพ', 'มาตรฐาน',
-        'คุณภาพ', 'เครือข่าย', 'อินเทอร์เน็ต'
-    }
-    
-    # Marketing/Persuasive indicators
-    marketing_words = {
-        'พิเศษ', 'ลดราคา', 'โปรโมชั่น', 'ฟรี', 'แจก', 'ชนะ', 'ดีที่สุด',
-        'เบอร์หนึ่ง', 'มั่นใจ', 'รับประกัน', 'ไม่พอใจยินดีคืนเงิน',
-        'เร่งด่วน', 'จำกัด', 'เหลือน้อย', 'ลดสูงสุด'
-    }
-    
-    # Count matches
-    formal_count = sum(1 for t in tokens if t in formal_words)
-    informal_count = sum(1 for t in tokens if t in informal_words)
-    technical_count = sum(1 for t in tokens if t in technical_words)
-    marketing_count = sum(1 for t in tokens if t in marketing_words)
-    
-    # English ratio
-    english_pattern = re.compile(r'[a-zA-Z]{2,}')
-    english_matches = len(english_pattern.findall(total_text))
-    total_words = len(tokens)
-    english_ratio = english_matches / max(total_words, 1) * 100
-    
-    # Average segment length
-    avg_seg_length = sum(len(s) for s in segments) / max(len(segments), 1)
-    
-    # Numbers/statistics
-    number_count = len(re.findall(r'\d+', total_text))
-    
-    # Determine primary tone
-    scores = {
-        'formal': formal_count * 2,
-        'informal': informal_count * 2,
-        'technical': technical_count * 1.5 + english_ratio * 0.5,
-        'marketing': marketing_count * 2
-    }
-    
-    # Add length bonus for formal
-    if avg_seg_length > 100:
-        scores['formal'] += 5
-    
-    primary_tone = max(scores, key=scores.get) if max(scores.values()) > 5 else 'neutral'
-    
-    return {
-        'primary_tone': primary_tone,
-        'scores': scores,
-        'formal_count': formal_count,
-        'informal_count': informal_count,
-        'technical_count': technical_count,
-        'marketing_count': marketing_count,
-        'english_ratio': english_ratio,
-        'avg_segment_length': avg_seg_length,
-        'number_count': number_count,
-        'total_segments': len(segments)
-    }
-
-
-def suggest_translation_approach(tone_analysis: dict) -> dict:
-    """
-    Suggest translation approach based on tone analysis.
-    
-    Returns:
-        dict with translation suggestions
-    """
-    tone = tone_analysis['primary_tone']
-    
-    suggestions = {
-        'formal': {
-            'title': '📋 เอกสารทางการ / Formal Document',
-            'description': 'เอกสารนี้มีลักษณะเป็นทางการ เหมาะสำหรับการแปลแบบเป็นทางการ',
-            'approach': [
-                '✓ ใช้คำศัพท์ทางการและสุภาพ',
-                '✓ รักษาโครงสร้างประโยคที่เป็นทางการ',
-                '✓ ใช้ "กระผม/ดิฉัน" แทน "ผม/ฉัน"',
-                '✓ หลีกเลี่ยงคำพูดสบายๆ และสแลง'
-            ],
-            'examples': {
-                'Please consider': 'โปรดพิจารณา',
-                'We request': 'ขอความกรุณา',
-                'Thank you': 'ขอขอบพระคุณ',
-                'Regarding': 'เรื่อง / เกี่ยวกับ'
-            },
-            'cat_tools_tips': [
-                'สร้าง Term Base สำหรับคำราชาศัพท์',
-                'ตั้ง QA rules ตรวจคำสุภาพ',
-                'ใช้ Translation Memory จากเอกสารทางการ'
-            ]
-        },
-        'informal': {
-            'title': '💬 เอกสารสบายๆ / Casual Document',
-            'description': 'เอกสารนี้ใช้ภาษาสบายๆ เป็นกันเอง',
-            'approach': [
-                '✓ ใช้ภาษาที่เป็นธรรมชาติและเข้าใจง่าย',
-                '✓ เพิ่มคำปิดท้ายตามบริบท (ครับ/ค่ะ, นะ)',
-                '✓ อนุญาตให้ใช้คำพูดสบายๆ',
-                '✓ รักษาโทนที่เป็นมิตร'
-            ],
-            'examples': {
-                'Hi': 'สวัสดี / หวัดดี',
-                'Thanks': 'ขอบคุณนะ',
-                'Sure': 'ได้เลย / โอเค',
-                'How about': 'เป็นไง / ยังไง'
-            },
-            'cat_tools_tips': [
-                'ใช้ glossary ที่มีทั้งรูปแบบ formal และ informal',
-                'ตั้ง QA ให้ flexible กับคำปิดท้าย',
-                'ใช้ TM จากเนื้อหาประเภทเดียวกัน'
-            ]
-        },
-        'technical': {
-            'title': '🔧 เอกสารทางเทคนิค / Technical Document',
-            'description': 'เอกสารนี้มีเนื้อหาทางเทคนิคสูง',
-            'approach': [
-                '✓ คงคำศัพท์เทคนิคภาษาอังกฤษไว้',
-                '✓ อธิบายเพิ่มเติมเมื่อจำเป็น',
-                '✓ ใช้คำศัพท์มาตรฐานในสายงาน',
-                '✓ รักษาความแม่นยำของข้อมูล'
-            ],
-            'examples': {
-                'System': 'ระบบ (system)',
-                'Database': 'ฐานข้อมูล (database)',
-                'Interface': 'อินเทอร์เฟซ / ส่วนติดต่อ',
-                'Configuration': 'การกำหนดค่า (configuration)'
-            },
-            'cat_tools_tips': [
-                'สร้าง Term Base เฉพาะสายงาน',
-                'ตรวจสอบความสอดคล้องของคำศัพท์เทคนิค',
-                'ใช้ TM จากเอกสารเทคนิคเดียวกัน',
-                'เก็บคำอังกฤษในวงเล็บ'
-            ]
-        },
-        'marketing': {
-            'title': '📢 เนื้อหาการตลาด / Marketing Content',
-            'description': 'เอกสารนี้มีลักษณะโน้มน้าวและชวนเชื่อ',
-            'approach': [
-                '✓ ปรับภาษาให้ดึงดูดและโน้มน้าว',
-                '✓ ใช้คำที่สร้างอารมณ์เชิงบวก',
-                '✓ รักษา call-to-action ให้ชัดเจน',
-                '✓ ปรับตามวัฒนธรรมเป้าหมาย'
-            ],
-            'examples': {
-                'Special offer': 'ข้อเสนอพิเศษ',
-                'Limited time': 'เวลาจำกัด',
-                'Best quality': 'คุณภาพดีที่สุด',
-                'Free shipping': 'จัดส่งฟรี'
-            },
-            'cat_tools_tips': [
-                'ใช้ glossary ที่มีคำโฆษณา',
-                'ระวังคำที่ต้องปรับตามกฎหมาย',
-                'ตรวจสอบความเหมาะสมทางวัฒนธรรม',
-                'เก็บรูปแบบการเขียนที่ดึงดูด'
-            ]
-        },
-        'neutral': {
-            'title': '📄 เอกสารทั่วไป / General Document',
-            'description': 'เอกสารนี้มีลักษณะเป็นกลาง',
-            'approach': [
-                '✓ ใช้ภาษามาตรฐานและเป็นกลาง',
-                '✓ รักษาความชัดเจนและเข้าใจง่าย',
-                '✓ ปรับ tone ตามบริบทของแต่ละส่วน',
-                '✓ คงความสม่ำเสมอตลอดเอกสาร'
-            ],
-            'examples': {
-                'Information': 'ข้อมูล / สารสนเทศ',
-                'Important': 'สำคัญ',
-                'Example': 'ตัวอย่าง',
-                'Please note': 'โปรดทราบ'
-            },
-            'cat_tools_tips': [
-                'ใช้ TM ที่หลากหลาย',
-                'ตรวจสอบความสม่ำเสมอของ terminology',
-                'ปรับ QA ตามลักษณะเนื้อหา'
-            ]
-        }
-    }
-    
-    main_suggestion = suggestions.get(tone, suggestions['neutral'])
-    
-    # Add confidence level
-    max_score = max(tone_analysis['scores'].values())
-    confidence = 'สูง' if max_score > 15 else 'ปานกลาง' if max_score > 8 else 'ต่ำ'
-    
-    main_suggestion['confidence'] = confidence
-    main_suggestion['tone_scores'] = tone_analysis['scores']
-    
-    return main_suggestion
-
-
 def extract_from_pdf(file_bytes: bytes) -> str:
     """Extract text from PDF - text layer only (no OCR)."""
     if not PYMUPDF_AVAILABLE:
@@ -540,30 +325,6 @@ def glossary_to_csv(glossary_dict: dict) -> str:
         ])
     
     return output.getvalue()
-
-
-def make_segments_dataframe(segments: list, filename: str) -> pd.DataFrame:
-    """Create DataFrame from segments for download."""
-    return pd.DataFrame({
-        "Segment_ID": [f"{filename}_{i:04d}" for i in range(1, len(segments) + 1)],
-        "Source_Text": segments,
-        "Target_Text": [""] * len(segments),
-        "Notes": [""] * len(segments),
-    })
-
-
-def make_glossary_dataframe(glossary_dict: dict) -> pd.DataFrame:
-    """Create DataFrame from glossary for download."""
-    data = []
-    for item in glossary_dict["combined"]:
-        data.append({
-            "Term": item["term"],
-            "Language": item["language"],
-            "Frequency": item["frequency"],
-            "Translation": "",
-            "Notes": ""
-        })
-    return pd.DataFrame(data)
 
 
 # ─── Streamlit App ───────────────────────────────────────────────────────────
@@ -693,12 +454,6 @@ if uploaded_file is not None:
         # Extract glossary (both Thai and English)
         st.info("📚 สกัดคลังศัพท์ (ไทย + อังกฤษ)...")
         glossary = extract_glossary(segments, top_n=top_n_glossary, min_freq=min_frequency)
-        progress_bar.progress(80)
-        
-        # Analyze tone
-        st.info("🎯 วิเคราะห์ลักษณะเอกสาร...")
-        tone_analysis = analyze_document_tone(segments, normalized)
-        translation_suggestion = suggest_translation_approach(tone_analysis)
         progress_bar.progress(100)
         
         st.success("✅ สำเร็จ!")
@@ -717,86 +472,6 @@ if uploaded_file is not None:
         with col4:
             st.metric("🔤 ตัวอักษร", len(normalized))
         
-        # Tone Analysis & Translation Suggestions
-        st.markdown("---")
-        st.markdown("### 🎯 การวิเคราะห์ลักษณะเอกสารและแนวทางการแปล")
-        
-        # Tone badges
-        tone_colors = {
-            'formal': '#3b82f6',
-            'informal': '#10b981',
-            'technical': '#8b5cf6',
-            'marketing': '#f59e0b',
-            'neutral': '#6b7280'
-        }
-        
-        tone_icons = {
-            'formal': '📋',
-            'informal': '💬',
-            'technical': '🔧',
-            'marketing': '📢',
-            'neutral': '📄'
-        }
-        
-        primary_tone = tone_analysis['primary_tone']
-        confidence = translation_suggestion['confidence']
-        
-        st.markdown(f"""
-        <div style="background: linear-gradient(135deg, {tone_colors.get(primary_tone, '#6b7280')} 0%, {tone_colors.get(primary_tone, '#6b7280')}dd 100%); 
-                    border-radius: 12px; padding: 1.5rem; color: white; margin-bottom: 1rem;">
-            <h3 style="margin: 0 0 0.5rem; color: white;">
-                {tone_icons.get(primary_tone, '📄')} {translation_suggestion['title']}
-            </h3>
-            <p style="margin: 0; opacity: 0.9; font-size: 0.95rem;">
-                {translation_suggestion['description']}
-            </p>
-            <p style="margin: 0.5rem 0 0; opacity: 0.8; font-size: 0.85rem;">
-                ความมั่นใจในการวิเคราะห์: <strong>{confidence}</strong>
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Detailed analysis
-        col_approach, col_examples = st.columns([1, 1])
-        
-        with col_approach:
-            st.markdown("#### 📌 แนวทางการแปล")
-            for item in translation_suggestion['approach']:
-                st.markdown(f"- {item}")
-            
-            st.markdown("#### 💡 เคล็ดลับสำหรับ CAT Tools")
-            for tip in translation_suggestion['cat_tools_tips']:
-                st.markdown(f"• {tip}")
-        
-        with col_examples:
-            st.markdown("#### 📝 ตัวอย่างการแปล")
-            examples_df = {
-                "English": list(translation_suggestion['examples'].keys()),
-                "ไทย (แนะนำ)": list(translation_suggestion['examples'].values())
-            }
-            st.dataframe(examples_df, use_container_width=True, hide_index=True)
-        
-        # Tone scores breakdown
-        with st.expander("📊 รายละเอียดการวิเคราะห์"):
-            score_col1, score_col2 = st.columns(2)
-            
-            with score_col1:
-                st.markdown("**คะแนนลักษณะเอกสาร:**")
-                for tone_type, score in translation_suggestion['tone_scores'].items():
-                    percentage = min(100, (score / 30) * 100)
-                    st.progress(percentage / 100, text=f"{tone_type.title()}: {score:.1f}")
-            
-            with score_col2:
-                st.markdown("**สถิติเพิ่มเติม:**")
-                st.markdown(f"""
-                - คำทางการ: **{tone_analysis['formal_count']}** คำ
-                - คำสบายๆ: **{tone_analysis['informal_count']}** คำ
-                - คำเทคนิค: **{tone_analysis['technical_count']}** คำ
-                - คำการตลาด: **{tone_analysis['marketing_count']}** คำ
-                - สัดส่วนภาษาอังกฤษ: **{tone_analysis['english_ratio']:.1f}%**
-                - ความยาวเฉลี่ย/segment: **{tone_analysis['avg_segment_length']:.0f}** ตัวอักษร
-                """)
-        
         # Raw preview
         with st.expander("👁️ ดูข้อความเต็ม (2000 ตัวอักษร)"):
             st.text(normalized[:2000])
@@ -810,40 +485,6 @@ if uploaded_file is not None:
         }
         
         st.dataframe(seg_df_data, use_container_width=True, height=400)
-        
-        # Download buttons
-        st.markdown("---")
-        st.markdown("### ⬇️ ดาวน์โหลด")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Segments CSV
-            segments_df = make_segments_dataframe(segments, filename)
-            segments_csv = segments_df.to_csv(index=False, encoding='utf-8-sig')
-            
-            st.download_button(
-                label="📥 ดาวน์โหลด Segments CSV",
-                data=segments_csv.encode('utf-8-sig'),
-                file_name=f"{filename}_segments.csv",
-                mime="text/csv",
-                use_container_width=True,
-                key="download_segments"
-            )
-        
-        with col2:
-            # Glossary CSV
-            glossary_df = make_glossary_dataframe(glossary)
-            glossary_csv = glossary_df.to_csv(index=False, encoding='utf-8-sig')
-            
-            st.download_button(
-                label="📥 ดาวน์โหลด Glossary CSV",
-                data=glossary_csv.encode('utf-8-sig'),
-                file_name=f"{filename}_glossary.csv",
-                mime="text/csv",
-                use_container_width=True,
-                key="download_glossary"
-            )
         
         # Glossary table with tabs
         st.markdown("### 📚 Glossary (คำซ้ำบ่อย)")
@@ -883,6 +524,32 @@ if uploaded_file is not None:
                 st.dataframe(eng_df_data, use_container_width=True, height=400)
             else:
                 st.info("No English terms found")
+        
+        # Download buttons
+        st.markdown("---")
+        st.markdown("### ⬇️ ดาวน์โหลด")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            seg_csv = segments_to_csv(segments, filename)
+            st.download_button(
+                label="📥 ดาวน์โหลด segments.csv (CAT Import)",
+                data=seg_csv.encode('utf-8-sig'),
+                file_name="segments.csv",
+                mime="text/csv",
+                key="download_segments"
+            )
+        
+        with col2:
+            glo_csv = glossary_to_csv(glossary)
+            st.download_button(
+                label="📥 ดาวน์โหลด glossary.csv (Term Base)",
+                data=glo_csv.encode('utf-8-sig'),
+                file_name="glossary.csv",
+                mime="text/csv",
+                key="download_glossary"
+            )
         
         # Statistics
         with st.expander("📈 สถิติเพิ่มเติม"):
